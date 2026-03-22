@@ -4,7 +4,7 @@ import os
 
 # 1. Configure your API key
 # Replace "YOUR_API_KEY" with the key you got from Google AI Studio
-genai.configure(api_key= "AIzaSyAeblcwzdGvX4I8fo7dfUPPq1G14hsXsoQ") 
+genai.configure(api_key= "") 
 
 # 2. Initialize the model 
 # Gemini 1.5 Flash is extremely fast, free for standard use, and has incredible vision capabilities
