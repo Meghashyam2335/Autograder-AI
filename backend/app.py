@@ -1,3 +1,6 @@
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r'C:\Users\msban\Downloads\Tesseract\tesseract-ocr-w64-setup-5.5.0.20241111.exe'
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -46,7 +49,7 @@ def upload_file():
 
     # If PDF → convert to images
     if file.filename.endswith('.pdf'):
-        images = convert_from_path(filepath)
+        images = convert_from_path(filepath, poppler_path=r'C:\Users\msban\Downloads\Release-25.12.0-0\poppler-25.12.0\Library\bin')
 
         for img in images:
             text = pytesseract.image_to_string(img)
