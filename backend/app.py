@@ -1,5 +1,6 @@
+import os
 import pytesseract
-pytesseract.pytesseract.tesseract_cmd = r'C:\Users\msban\Downloads\Tesseract\tesseract-ocr-w64-setup-5.5.0.20241111.exe'
+pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD')
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
