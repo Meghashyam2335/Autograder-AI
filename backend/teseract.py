@@ -44,10 +44,10 @@ def extract_and_split(image_path):
 
 # --- Test It Out ---
 if __name__ == "__main__":
-    # You can pass the ORIGINAL newspaper image here! No need for the preprocessed version.
-    img_path = r"C:\Users\thris\Downloads\Autograder-AI\backend\preprocessed_result.jpg" 
+    # # You can pass the ORIGINAL newspaper image here! No need for the preprocessed version.
+    # img_path = r"C:\Users\thris\Downloads\Autograder-AI\backend\preprocessed_result.jpg" 
         
-    result = extract_and_split(img_path)
+    # result = extract_and_split(img_path)
 
-    print("\n--- Gemini Q&A Output ---")
-    print(result)
+    # print("\n--- Gemini Q&A Output ---")
+    # print(result)

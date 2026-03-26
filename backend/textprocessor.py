@@ -51,23 +51,23 @@ def clean_text(text):
 
 # --- Test the Flowchart Logic ---
 if __name__ == "__main__":
-    print("\n--- Starting Text Processing ---")
+    # print("\n--- Starting Text Processing ---")
     
-    # Example data
-    ideal_answer = "Photosynthesis is the process used by plants to convert light energy into chemical energy."
-    student_answer = "Plants are using lights energy to converted it to chemicals energy."
+    # # Example data
+    # ideal_answer = "Photosynthesis is the process used by plants to convert light energy into chemical energy."
+    # student_answer = "Plants are using lights energy to converted it to chemicals energy."
     
-    print("\n--- RAW DATA ---")
-    print(f"Ideal: {ideal_answer}")
-    print(f"Student: {student_answer}")
+    # print("\n--- RAW DATA ---")
+    # print(f"Ideal: {ideal_answer}")
+    # print(f"Student: {student_answer}")
     
-    print("\nProcessing Ideal Answer...")
-    clean_ideal = clean_text(ideal_answer)
+    # print("\nProcessing Ideal Answer...")
+    # clean_ideal = clean_text(ideal_answer)
     
-    print("Processing Student Answer...")
-    clean_student = clean_text(student_answer)
+    # print("Processing Student Answer...")
+    # clean_student = clean_text(student_answer)
     
-    print("\n--- PREPROCESSED DATA (Output of Green Block) ---")
-    print(f"Clean Ideal:   {clean_ideal}")
-    print(f"Clean Student: {clean_student}")
-    print("--- Script Finished Successfully ---")
+    # print("\n--- PREPROCESSED DATA (Output of Green Block) ---")
+    # print(f"Clean Ideal:   {clean_ideal}")
+    # print(f"Clean Student: {clean_student}")
+    # print("--- Script Finished Successfully ---")

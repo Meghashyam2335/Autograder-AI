@@ -33,27 +33,27 @@ def calculate_grade(clean_ideal_answer, clean_student_answer):
 
 # --- Test the Scoring Engine ---
 if __name__ == "__main__":
-    print("\n--- Testing Autograder Similarity Check ---")
+    # print("\n--- Testing Autograder Similarity Check ---")
     
-    # Let's test it with your preprocessed outputs
-    # Notice how the student uses different words, but the SAME concept
-    clean_ideal = "photosynthesis process plant convert light energy chemical energy"
+    # # Let's test it with your preprocessed outputs
+    # # Notice how the student uses different words, but the SAME concept
+    # clean_ideal = "photosynthesis process plant convert light energy chemical energy"
     
-    # Scenario A: Good Answer (Uses synonyms)
-    clean_student_good = "plant use sunlight turn chemical power"
+    # # Scenario A: Good Answer (Uses synonyms)
+    # clean_student_good = "plant use sunlight turn chemical power"
     
-    # Scenario B: Bad Answer (Completely wrong concept)
-    clean_student_bad = "mitochondria powerhouse cell produce atp"
+    # # Scenario B: Bad Answer (Completely wrong concept)
+    # clean_student_bad = "mitochondria powerhouse cell produce atp"
     
-    # Calculate Scores
-    score_good = calculate_grade(clean_ideal, clean_student_good)
-    score_bad = calculate_grade(clean_ideal, clean_student_bad)
+    # # Calculate Scores
+    # score_good = calculate_grade(clean_ideal, clean_student_good)
+    # score_bad = calculate_grade(clean_ideal, clean_student_bad)
     
-    print("\n--- RESULTS ---")
-    print(f"Ideal Answer Vector: '{clean_ideal}'\n")
+    # print("\n--- RESULTS ---")
+    # print(f"Ideal Answer Vector: '{clean_ideal}'\n")
     
-    print(f"Student A Vector: '{clean_student_good}'")
-    print(f"Student A Score:  {score_good}/100\n")
+    # print(f"Student A Vector: '{clean_student_good}'")
+    # print(f"Student A Score:  {score_good}/100\n")
     
-    print(f"Student B Vector: '{clean_student_bad}'")
-    print(f"Student B Score:  {score_bad}/100")
+    # print(f"Student B Vector: '{clean_student_bad}'")
+    # print(f"Student B Score:  {score_bad}/100")
