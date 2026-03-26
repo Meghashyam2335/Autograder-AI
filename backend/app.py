@@ -1,81 +1,96 @@
 import os
-import cv2
-from flask import Flask, request, jsonify
-from werkzeug.utils import secure_filename
+import pytesseract
+from Score import calculate_grade
+pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD')
 
-# Import your custom modules
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from PIL import Image
+from pdf2image import convert_from_path
+
 from Preprocessing import preprocess_image
-from teseract import extract_and_split
+
 from textprocessor import clean_text
-from score import calculate_grade
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
+CORS(app)
+
+# Folder to store uploads
+UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-def process_pipeline(image_file):
-    """
-    Helper function to run the full pipeline:
-    Save -> Preprocess -> Gemini OCR -> NLTK Cleaning
-    """
-    # 1. Save original
-    filename = secure_filename(image_file.filename)
-    raw_path = os.path.join(UPLOAD_FOLDER, f"raw_{filename}")
-    image_file.save(raw_path)
+# Home route
+@app.route('/')
+def home():
+    return "AutoGrader Backend Running"
 
-    # 2. Preprocessing (OpenCV)
-    # Your script saves 'preprocessed_result.jpg' by default; 
-    # we'll capture the returned array and save a specific copy for Gemini
-    processed_array = preprocess_image(raw_path)
-    proc_path = os.path.join(UPLOAD_FOLDER, f"proc_{filename}")
-    cv2.imwrite(proc_path, processed_array)
+# Upload UI (GET)
+@app.route('/upload-page', methods=['GET'])
+def upload_page():
+    return '''
+    <h2>Upload File</h2>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <input type="submit">
+    </form>
+    '''
 
-    # 3. Extraction (Gemini)
-    extracted_text = extract_and_split(proc_path)
+# Upload API (POST)
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-    # 4. Text Cleaning (NLTK)
-    cleaned_text = clean_text(extracted_text)
+    file = request.files['file']
 
-    # Cleanup temp files
-    if os.path.exists(raw_path): os.remove(raw_path)
-    if os.path.exists(proc_path): os.remove(proc_path)
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
 
-    return extracted_text, cleaned_text
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filepath)
 
-@app.route('/grade_images', methods=['POST'])
-def grade_images():
-    # Check if both images are in the request
-    if 'student_image' not in request.files or 'ideal_image' not in request.files:
-        return jsonify({"error": "Please upload both student_image and ideal_image"}), 400
+    extracted_text = ""
 
-    try:
-        # Process Student Answer
-        raw_student, clean_student = process_pipeline(request.files['student_image'])
+    # If PDF → convert to images
+    if file.filename.endswith('.pdf'):
+        images = convert_from_path(
+            filepath,
+            poppler_path=r'C:\Users\msban\Downloads\Release-25.12.0-0\poppler-25.12.0\Library\bin'
+        )
 
-        # Process Ideal Answer
-        raw_ideal, clean_ideal = process_pipeline(request.files['ideal_image'])
+        for img in images:
+            processed = preprocess_image(img)
 
-        # Final Scoring (Sentence Transformers)
-        final_score = calculate_grade(clean_ideal, clean_student)
+            text = pytesseract.image_to_string(
+                processed,
+                config='--oem 3 --psm 6'
+            )
 
-        return jsonify({
-            "status": "success",
-            "student": {
-                "extracted": raw_student,
-                "cleaned": clean_student
-            },
-            "ideal": {
-                "extracted": raw_ideal,
-                "cleaned": clean_ideal
-            },
-            "score": final_score,
-            "max_score": 10.0
-        })
+            extracted_text += text
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    else:
+        # If image
+        img = Image.open(filepath)
+        processed = preprocess_image(img)
 
+        extracted_text = pytesseract.image_to_string(
+            processed,
+            config='--oem 3 --psm 6'
+        )
+    clean_student = clean_text(extracted_text)
+
+    ideal_answer = "photosynthesis is the process by which plants convert light energy into chemical energy"
+    clean_ideal = clean_text(ideal_answer)
+
+    score = calculate_grade(clean_ideal, clean_student)
+
+    return jsonify({
+        "message": "File uploaded and processed",
+        "filename": file.filename,
+        "extracted_text": extracted_text[:500],
+        "score": score
+    })
+
+# Run server
 if __name__ == '__main__':
-    # Using threaded=True because Gemini API and Sentence Transformers 
-    # can be heavy on resources
-    app.run(debug=True, port=5000, threaded=True)
+    app.run(debug=True)
