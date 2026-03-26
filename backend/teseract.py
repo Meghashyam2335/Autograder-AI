@@ -1,10 +1,10 @@
 import google.generativeai as genai
 from PIL import Image
 import os
+from dotenv import load_dotenv, find_dotenv
 
 # 1. Configure your API key
 # Replace "YOUR_API_KEY" with the key you got from Google AI Studio
-
 
 # 2. Initialize the model 
 # Gemini 1.5 Flash is extremely fast, free for standard use, and has incredible vision capabilities
@@ -14,6 +14,7 @@ def extract_and_split(image_path):
     """
     Sends an image directly to Gemini to extract text and format it into Q&A.
     """
+    load_dotenv(find_dotenv())
     genai.configure(api_key= os.getenv("GEMINI_API")) 
     model = genai.GenerativeModel('gemini-2.5-flash')
     if not os.path.exists(image_path):

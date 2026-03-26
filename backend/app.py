@@ -1,7 +1,13 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-import uvicorn
-import shutil
 import os
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD')
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import os
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_path
 
 # --- Import your custom functions here ---
 # Replace 'extract_text', 'clean_text', and 'process_texts' 
@@ -70,9 +76,25 @@ def upload_file():
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
 
+    extracted_text = ""
+
+    # If PDF → convert to images
+    if file.filename.endswith('.pdf'):
+        images = convert_from_path(filepath, poppler_path=r'C:\Users\msban\Downloads\Release-25.12.0-0\poppler-25.12.0\Library\bin')
+
+        for img in images:
+            text = pytesseract.image_to_string(img)
+            extracted_text += text
+
+    else:
+        # If image
+        img = Image.open(filepath)
+        extracted_text = pytesseract.image_to_string(img)
+
     return jsonify({
-        "message": "File uploaded successfully",
-        "filename": file.filename
+        "message": "File uploaded and processed",
+        "filename": file.filename,
+        "extracted_text": extracted_text[:500]  # limit output
     })
 
 # Run server
