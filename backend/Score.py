@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer, util
 
-print("Loading Local Scoring Model (MiniLM)...")
+# print("Loading Local Scoring Model (MiniLM)...")
 # 'all-MiniLM-L6-v2' is highly optimized. It's fast, small (~80MB), and incredibly accurate.
 # It will download automatically the first time you run this.
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -13,7 +13,7 @@ def calculate_grade(clean_ideal_answer, clean_student_answer):
     if not clean_student_answer.strip():
         return 0.0
 
-    print("Generating sentence embeddings...")
+    # print("Generating sentence embeddings...")
     # 1. Convert the text into mathematical vectors
     ideal_embedding = model.encode(clean_ideal_answer, convert_to_tensor=True)
     student_embedding = model.encode(clean_student_answer, convert_to_tensor=True)
@@ -24,7 +24,7 @@ def calculate_grade(clean_ideal_answer, clean_student_answer):
 
     # 3. Evaluation and Scoring (Convert to Percentage)
     # Multiply by 100 and round to 2 decimal places
-    final_score = round(cosine_score * 100, 2)
+    final_score = round(cosine_score * 10, 1)
     
     # Ensure the score doesn't go below 0 (sometimes completely unrelated vectors yield tiny negative numbers)
     final_score = max(0.0, final_score)

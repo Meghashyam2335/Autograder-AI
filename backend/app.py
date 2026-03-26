@@ -1,29 +1,60 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import uvicorn
+import shutil
 import os
 
-app = Flask(__name__)
-CORS(app)
+# --- Import your custom functions here ---
+# Replace 'extract_text', 'clean_text', and 'process_texts' 
+# with the actual function names you created in these files.
+from teseract import extract_text 
+from Preprocessing import clean_text 
+from textprocessor import process_texts 
 
-# Folder to store uploads
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app = FastAPI(title="Answer Evaluation API")
 
-# Home route
-@app.route('/')
-def home():
-    return "AutoGrader Backend Running"
+@app.post("/evaluate/")
+async def evaluate_answer(
+    ideal_answer: str = Form(...),
+    written_answer_image: UploadFile = File(...)
+):
+    """
+    Endpoint to evaluate a written answer image against an ideal text answer.
+    """
+    temp_file_path = f"temp_{written_answer_image.filename}"
+    
+    try:
+        # Step 1: Save the uploaded image temporarily 
+        # (Assuming your teseract function reads from a file path)
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(written_answer_image.file, buffer)
 
-# Upload UI (GET)
-@app.route('/upload-page', methods=['GET'])
-def upload_page():
-    return '''
-    <h2>Upload File</h2>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit">
-    </form>
-    '''
+        # Step 2: Use teseract.py to get text from the image
+        extracted_written_text = extract_text(temp_file_path)
+
+        # Step 3: Use Preprocessing.py to clean both texts
+        cleaned_ideal = clean_text(ideal_answer)
+        cleaned_written = clean_text(extracted_written_text)
+
+        # Step 4: Use textprocessor.py to compare/process the answers
+        final_result = process_texts(cleaned_ideal, cleaned_written)
+
+        return {
+            "status": "success",
+            "extracted_text": extracted_written_text,
+            "evaluation": final_result
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    finally:
+        # Clean up the temporary image file after processing
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+
+# Optional: To run the file directly via python main.py
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
 # Upload API (POST)
 @app.route('/upload', methods=['POST'])
