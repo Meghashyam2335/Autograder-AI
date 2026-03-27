@@ -1,70 +1,80 @@
 import React, { useState } from "react";
+import { useParams } from "react-router-dom";
 import "./UploadForm.css";
 
 function UploadForm() {
+  const { examId } = useParams();
+
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleUpload = async () => {
     if (!file) {
-      alert("Please upload a file");
+      alert("Please select a file");
       return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("examId", examId);
 
     try {
       setLoading(true);
 
-      const response = await fetch("http://127.0.0.1:5000/upload", {
+      const response = await fetch("http://localhost:5000/upload", {
         method: "POST",
         body: formData,
       });
 
       const data = await response.json();
+      console.log("Backend Response:", data);
       setResult(data);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container">
-      <div className="card">
-        <h2>📄 AutoGrader</h2>
+    <div className="upload-bg">
+      <div className="upload-card">
 
-        <form onSubmit={handleSubmit}>
-          <label className="upload-box">
-            {file ? file.name : "Click to upload answer sheet"}
-            <input
-              type="file"
-              onChange={(e) => setFile(e.target.files[0])}
-              hidden
-            />
-          </label>
+        <h2>Upload Answer Sheets</h2>
+        <p className="subtitle">Exam ID: {examId}</p>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Processing..." : "Upload & Analyze"}
-          </button>
-        </form>
+        {/* Upload Box */}
+        <label className="upload-box">
+          {file ? file.name : "Choose File"}
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            hidden
+          />
+        </label>
 
+        {/* Upload Button */}
+        <button onClick={handleUpload}>Upload</button>
+
+        {/* Loading */}
+        {loading && <p className="loading">Processing... ⏳</p>}
+
+        {/* Result */}
         {result && (
-          <div className="result">
-            <h3>Result</h3>
-            <p><b>Text:</b> {result.extracted_text}</p>
-            <p><b>Similarity:</b> {result.similarity}</p>
-            <p><b>Score:</b> {result.score}</p>
+          <div className="result-box">
+            <h3>Score: {result.score}</h3>
+            <p><strong>Extracted Text:</strong></p>
+            <p className="text">{result.extracted_text}</p>
           </div>
         )}
+
       </div>
     </div>
   );
 }
 
 export default UploadForm;
+
+

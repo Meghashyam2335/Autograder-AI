@@ -3,42 +3,56 @@ import { useNavigate } from "react-router-dom";
 import "./Login.css";
 
 function Login() {
+  const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+  const [show, setShow] = useState(false);
 
   const handleLogin = (e) => {
     e.preventDefault();
 
-    // dummy login (replace later with backend)
-    if (username === "teacher" && password === "123") {
+    if (username && password) {
       navigate("/dashboard");
     } else {
-      alert("Invalid credentials");
+      alert("Enter credentials");
     }
   };
 
   return (
-    <div className="login-container">
-      <form className="login-card" onSubmit={handleLogin}>
-        <h2>Teacher Login</h2>
+    <div className="bg">
+      <div className="login-card">
+        <h2>AutoGrader</h2>
+        <p className="subtitle">Teacher Login</p>
 
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+        <form onSubmit={handleLogin}>
+          <div className="input-box">
+            <input
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <label>Username</label>
+          </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <div className="input-box">
+            <input
+              type={show ? "text" : "password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <label>Password</label>
 
-        <button type="submit">Login</button>
-      </form>
+            <span className="toggle" onClick={() => setShow(!show)}>
+              {show ? "🙈" : "👁"}
+            </span>
+          </div>
+
+          <button type="submit">Login</button>
+        </form>
+      </div>
     </div>
   );
 }

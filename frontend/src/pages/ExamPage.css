@@ -1,0 +1,13 @@
+.exam-container {
+  padding: 30px;
+}
+
+.exam-title {
+  margin-bottom: 20px;
+}
+
+.exam-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
