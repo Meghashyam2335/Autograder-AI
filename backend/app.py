@@ -79,7 +79,13 @@ def upload_file():
         )
     clean_student = clean_text(extracted_text)
 
-    ideal_answer = "photosynthesis is the process by which plants convert light energy into chemical energy"
+    ideal_answer = """Photosynthesis is the essential biological process where plants, algae, and certain bacteria convert light energy into chemical energy to create food. Using chlorophyll, they transform carbon dioxide and water into glucose (sugar) and oxygen in the presence of sunlight, serving as the foundation for most life on Earth. 
+How Photosynthesis Works
+Ingredients: Plants require light, water and carbon dioxide
+The Process: Chlorophyll (a green pigment in chloroplasts) captures light energy. This energy splits water molecules and converts into chemical energy, primarily in the form of glucose.
+Location: The process primarily occurs in the leaves.
+Outputs: The plant produces glucose for food/growth and releases oxygen as a waste product."""
+
     clean_ideal = clean_text(ideal_answer)
 
     score = calculate_grade(clean_ideal, clean_student)
@@ -90,6 +96,7 @@ def upload_file():
         "extracted_text": extracted_text[:500],
         "score": score
     })
+
 
 # Run server
 if __name__ == '__main__':
