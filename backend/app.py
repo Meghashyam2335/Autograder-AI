@@ -1,120 +1,203 @@
 import os
 import torch
+import numpy as np
 from PIL import Image
 import easyocr
-import numpy as np
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pdf2image import convert_from_path
 
-# Custom imports
 from Score import calculate_grade
 from textprocessor import clean_text
 
+# ---------- APP ----------
 app = Flask(__name__)
 CORS(app)
-
-# --- Initialize TrOCR and EasyOCR once ---
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Loading models on {device}...")
-
-processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
-model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten").to(device)
-reader = easyocr.Reader(['en'], gpu=(device == "cuda")) # Tell EasyOCR to use GPU if available
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-def perform_trocr_ocr(image):
-    """
-    Detects text regions using EasyOCR and transcribes them using TrOCR.
-    """
-    img_array = np.array(image.convert("RGB"))
-    
-    # 1. Detect text boxes
-    results = reader.readtext(img_array) 
-    extracted_segments = []
+# ---------- DEVICE ----------
+device = "cuda" if torch.cuda.is_available() else "cpu"
+torch.set_num_threads(2)
 
-    # 2. Sort results by vertical position (Y-coordinate) to maintain readability
-    results.sort(key=lambda x: x[0][0][1])
+print(f"🔥 Running on: {device}")
+
+# ---------- LOAD MODELS ----------
+print("🔥 Loading models...")
+
+reader = easyocr.Reader(['en'], gpu=(device == "cuda"))
+
+processor = TrOCRProcessor.from_pretrained(
+    "microsoft/trocr-base-handwritten",
+    use_fast=True
+)
+
+model = VisionEncoderDecoderModel.from_pretrained(
+    "microsoft/trocr-base-handwritten",
+    low_cpu_mem_usage=True
+).to(device)
+
+model.eval()
+
+print("✅ Models loaded")
+
+
+# ---------- TROCR FULL IMAGE FALLBACK ----------
+def full_image_trocr(image):
+    pixel_values = processor(
+        images=image,
+        return_tensors="pt"
+    ).pixel_values.to(device)
+
+    with torch.no_grad():
+        ids = model.generate(
+            pixel_values,
+            max_new_tokens=120,
+            num_beams=2
+        )
+
+    return processor.batch_decode(ids, skip_special_tokens=True)[0]
+
+
+# ---------- OCR CORE ----------
+def perform_ocr(image):
+    print("🔍 OCR Started")
+
+    img_array = np.array(image.convert("RGB"))
+
+    # STEP 1: DETECT BOXES (EasyOCR)
+    results = reader.readtext(img_array)
+
+    boxes = []
 
     for (bbox, text, prob) in results:
-        # 3. Safely cast coordinates to integers for PIL
-        top_left = bbox[0]
-        bottom_right = bbox[2]
-        
-        left = int(top_left[0])
-        upper = int(top_left[1])
-        right = int(bottom_right[0])
-        lower = int(bottom_right[1])
-        
-        # Crop the line from the original PIL image
-        line_crop = image.crop((left, upper, right, lower))
+        if prob < 0.25:
+            continue
 
-        # 4. Transcribe with TrOCR
-        pixel_values = processor(images=line_crop, return_tensors="pt").pixel_values.to(device)
-        generated_ids = model.generate(pixel_values, max_new_tokens=64)
-        clean_segment = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        
-        extracted_segments.append(clean_segment)
+        x_min = int(min(p[0] for p in bbox))
+        y_min = int(min(p[1] for p in bbox))
+        x_max = int(max(p[0] for p in bbox))
+        y_max = int(max(p[1] for p in bbox))
 
-    # Join and clean punctuation
-    raw_text = " ".join(extracted_segments)
-    return raw_text.replace(" .", ".").replace(" ,", ",").strip()
+        boxes.append((x_min, y_min, x_max, y_max))
 
+    if len(boxes) == 0:
+        print("⚠️ No boxes → full image fallback")
+        return full_image_trocr(image)
+
+    # STEP 2: GROUP INTO LINES
+    lines = []
+
+    for box in boxes:
+        placed = False
+
+        for line in lines:
+            if abs(box[1] - line[0][1]) < 25:
+                line.append(box)
+                placed = True
+                break
+
+        if not placed:
+            lines.append([box])
+
+    # sort lines top → bottom
+    lines.sort(key=lambda l: l[0][1])
+
+    texts = []
+
+    # STEP 3: LINE-LEVEL TROCR
+    for line in lines:
+        line.sort(key=lambda b: b[0])
+
+        x1 = min(b[0] for b in line)
+        y1 = min(b[1] for b in line)
+        x2 = max(b[2] for b in line)
+        y2 = max(b[3] for b in line)
+
+        crop = image.crop((x1, y1, x2, y2))
+
+        crop = crop.convert("RGB")
+        crop.thumbnail((512, 512))
+
+        pixel_values = processor(
+            images=crop,
+            return_tensors="pt"
+        ).pixel_values.to(device)
+
+        with torch.no_grad():
+            ids = model.generate(
+                pixel_values,
+                max_new_tokens=80,
+                num_beams=3
+            )
+
+        text = processor.batch_decode(ids, skip_special_tokens=True)[0]
+
+        texts.append(text)
+
+    return "\n".join(texts)
+
+
+# ---------- ROUTES ----------
 @app.route('/')
 def home():
-    return "AutoGrader Backend with TrOCR Running"
+    return "🚀 Backend Running (EasyOCR + TrOCR Hybrid)"
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    print("\n=== NEW REQUEST ===")
+
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"error": "No file"}), 400
 
     file = request.files['file']
+
     if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+        return jsonify({"error": "Empty filename"}), 400
 
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
 
-    full_extracted_text = ""
-
     try:
-        # Handle PDF or Image
+        full_text = ""
+
+        # ---------- PDF ----------
         if file.filename.lower().endswith('.pdf'):
-            # Note: Ensure poppler is in your system PATH
-            images = convert_from_path(filepath)
-            for img in images:
-                text = perform_trocr_ocr(img)
-                full_extracted_text += text + " "
+            images = convert_from_path(filepath, dpi=150)
+
+            for img in images[:3]:
+                full_text += perform_ocr(img) + " "
+
+        # ---------- IMAGE ----------
         else:
             img = Image.open(filepath).convert("RGB")
-            full_extracted_text = perform_trocr_ocr(img)
+            full_text = perform_ocr(img)
 
-        clean_student = clean_text(full_extracted_text)
-        
-        # Placeholder for ideal answer logic
-        ideal_answer = "" 
+        clean_student = clean_text(full_text)
+
+        # TEMP IDEAL ANSWER
+        ideal_answer = "machine learning is used for prediction and analysis"
         clean_ideal = clean_text(ideal_answer)
 
         score = calculate_grade(clean_ideal, clean_student)
 
-        # Cleanup: Delete the file after successful processing
-        if os.path.exists(filepath):
-            os.remove(filepath)
-
         return jsonify({
             "score": score,
-            "extracted_text": clean_student 
+            "extracted_text": clean_student
         })
 
     except Exception as e:
-        # Cleanup file if an error occurs during processing
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        print("ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+
+# ---------- MAIN ----------
+if __name__ == "__main__":
+    app.run(debug=True, use_reloader=False)
