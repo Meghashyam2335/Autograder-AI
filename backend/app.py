@@ -177,6 +177,7 @@ def upload_file():
             full_text = perform_ocr(img)
 
         clean_student = clean_text(full_text)
+        print("\n🧹 PREPROCESSED TEXT:\n", clean_student)
 
         # TEMP IDEAL ANSWER
         ideal_answer = "machine learning is used for prediction and analysis"
