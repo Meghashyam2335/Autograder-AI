@@ -15,6 +15,9 @@ from textprocessor import clean_text
 app = Flask(__name__)
 CORS(app)
 
+exams = {}
+submissions = {}
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -146,17 +149,18 @@ def home():
     return "🚀 Backend Running (EasyOCR + TrOCR Hybrid)"
 
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    print("\n=== NEW REQUEST ===")
+@app.route("/upload", methods=["POST"])
+def upload():
+    data = request.form
 
-    if 'file' not in request.files:
-        return jsonify({"error": "No file"}), 400
+    student_id = data.get("student_id")
+    exam_id = data.get("exam_id")
+    question_id = data.get("question_id")
 
-    file = request.files['file']
+    if not student_id or not exam_id or not question_id:
+        return jsonify({"error": "Missing fields"}), 400
 
-    if file.filename == '':
-        return jsonify({"error": "Empty filename"}), 400
+    file = request.files["file"]
 
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
@@ -164,40 +168,83 @@ def upload_file():
     try:
         full_text = ""
 
-        # ---------- PDF ----------
-        if file.filename.lower().endswith('.pdf'):
+        if file.filename.lower().endswith(".pdf"):
             images = convert_from_path(filepath, dpi=150)
-
             for img in images[:3]:
                 full_text += perform_ocr(img) + " "
-
-        # ---------- IMAGE ----------
         else:
             img = Image.open(filepath).convert("RGB")
             full_text = perform_ocr(img)
 
-        clean_student = clean_text(full_text)
-        print("\n🧹 PREPROCESSED TEXT:\n", clean_student)
+        student_text = clean_text(full_text)
 
-        # TEMP IDEAL ANSWER
-        ideal_answer = "machine learning is used for prediction and analysis"
-        clean_ideal = clean_text(ideal_answer)
+        ideal = "photosynthesis is ideal"
 
-        score = calculate_grade(clean_ideal, clean_student)
+        score = calculate_grade(ideal, student_text)
+
+        # simple feedback logic
+        if score >= 8:
+            feedback = "Excellent answer"
+        elif score >= 5:
+            feedback = "Good but needs improvement"
+        else:
+            feedback = "Poor answer"
+
+        # STORE RESULT
+        if student_id not in submissions:
+            submissions[student_id] = {}
+
+        submissions[student_id][question_id] = {
+            "exam_id": exam_id,
+            "score": score,
+            "feedback": feedback,
+            "answer": student_text
+        }
+
+        print("📊 Submissions:", submissions)
 
         return jsonify({
             "score": score,
-            "extracted_text": clean_student
+            "feedback": feedback
         })
-
-    except Exception as e:
-        print("ERROR:", e)
-        return jsonify({"error": str(e)}), 500
 
     finally:
         if os.path.exists(filepath):
             os.remove(filepath)
 
+@app.route("/upload-key", methods=["POST"])
+def upload_key():
+    data = request.get_json()
+
+    exam_id = data.get("exam_id")
+    question_id = data.get("question_id")
+    question = data.get("question")
+    key = data.get("key")
+
+    if not exam_id or not question_id or not question or not key:
+        return jsonify({"error": "Missing fields"}), 400
+
+    if exam_id not in exams:
+        exams[exam_id] = {}
+
+    exams[exam_id][question_id] = {
+        "question": question,
+        "key": clean_text(key)
+    }
+
+    print("✅ Stored:", exams)
+
+    return jsonify({"message": "Question + Key stored"})
+
+@app.route("/get-questions/<exam_id>", methods=["GET"])
+def get_questions(exam_id):
+    if exam_id not in exams:
+        return jsonify({})
+
+    return jsonify({
+        qid: data["question"]
+        for qid, data in exams[exam_id].items()
+    })
 
 # ---------- MAIN ----------
 if __name__ == "__main__":
