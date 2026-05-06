@@ -7,8 +7,8 @@ from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pdf2image import convert_from_path
-
 from Score import calculate_grade
+
 from textprocessor import clean_text
 
 # ---------- APP ----------
@@ -28,7 +28,7 @@ torch.set_num_threads(2)
 print(f"🔥 Running on: {device}")
 
 # ---------- LOAD MODELS ----------
-print("🔥 Loading models...")
+print("🔥 Loading OCR models...")
 
 reader = easyocr.Reader(['en'], gpu=(device == "cuda"))
 
@@ -45,6 +45,21 @@ model = VisionEncoderDecoderModel.from_pretrained(
 model.eval()
 
 print("✅ Models loaded")
+
+
+import re
+
+def extract_keywords(text):
+    text = re.sub(r"[^a-zA-Z\s]", "", text.lower())
+
+    stopwords = {
+        "is","are","was","were","the","a","an","and","or",
+        "of","to","in","for","with","on","by","uses","use"
+    }
+
+    words = text.split()
+
+    return list(set([w for w in words if w not in stopwords and len(w) > 3]))
 
 
 # ---------- TROCR FULL IMAGE FALLBACK ----------
@@ -66,11 +81,8 @@ def full_image_trocr(image):
 
 # ---------- OCR CORE ----------
 def perform_ocr(image):
-    print("🔍 OCR Started")
 
     img_array = np.array(image.convert("RGB"))
-
-    # STEP 1: DETECT BOXES (EasyOCR)
     results = reader.readtext(img_array)
 
     boxes = []
@@ -87,10 +99,8 @@ def perform_ocr(image):
         boxes.append((x_min, y_min, x_max, y_max))
 
     if len(boxes) == 0:
-        print("⚠️ No boxes → full image fallback")
         return full_image_trocr(image)
 
-    # STEP 2: GROUP INTO LINES
     lines = []
 
     for box in boxes:
@@ -105,12 +115,10 @@ def perform_ocr(image):
         if not placed:
             lines.append([box])
 
-    # sort lines top → bottom
     lines.sort(key=lambda l: l[0][1])
 
     texts = []
 
-    # STEP 3: LINE-LEVEL TROCR
     for line in lines:
         line.sort(key=lambda b: b[0])
 
@@ -120,7 +128,6 @@ def perform_ocr(image):
         y2 = max(b[3] for b in line)
 
         crop = image.crop((x1, y1, x2, y2))
-
         crop = crop.convert("RGB")
         crop.thumbnail((512, 512))
 
@@ -137,20 +144,21 @@ def perform_ocr(image):
             )
 
         text = processor.batch_decode(ids, skip_special_tokens=True)[0]
-
         texts.append(text)
 
-    return "\n".join(texts)
+    return " ".join(texts)
 
 
 # ---------- ROUTES ----------
 @app.route('/')
 def home():
-    return "🚀 Backend Running (EasyOCR + TrOCR Hybrid)"
+    return "🚀 Backend Running (OCR + ML Ready)"
 
 
+# ---------- UPLOAD ANSWER ----------
 @app.route("/upload", methods=["POST"])
 def upload():
+
     data = request.form
 
     student_id = data.get("student_id")
@@ -160,6 +168,12 @@ def upload():
     if not student_id or not exam_id or not question_id:
         return jsonify({"error": "Missing fields"}), 400
 
+    # CHECK KEY EXISTS
+    exam_data = exams.get(exam_id, {}).get(question_id)
+
+    if not exam_data:
+        return jsonify({"error": "No answer key found"}), 400
+
     file = request.files["file"]
 
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
@@ -168,6 +182,7 @@ def upload():
     try:
         full_text = ""
 
+        # OCR PROCESSING
         if file.filename.lower().endswith(".pdf"):
             images = convert_from_path(filepath, dpi=150)
             for img in images[:3]:
@@ -176,16 +191,20 @@ def upload():
             img = Image.open(filepath).convert("RGB")
             full_text = perform_ocr(img)
 
+        # CLEAN STUDENT ANSWER
         student_text = clean_text(full_text)
 
-        ideal = "photosynthesis is ideal"
+        # FETCH STORED DATA
+        ideal = exam_data["key"]
+        keywords = exam_data["keywords"]
 
-        score = calculate_grade(ideal, student_text)
+        # 🔥 FINAL ML SCORE (ONLY PLACE WHERE SCORING HAPPENS)
+        score = calculate_grade(ideal, student_text, keywords)
 
-        # simple feedback logic
+        # FEEDBACK LOGIC (optional rule-based layer)
         if score >= 8:
             feedback = "Excellent answer"
-        elif score >= 5:
+        elif score >= 3:
             feedback = "Good but needs improvement"
         else:
             feedback = "Poor answer"
@@ -201,19 +220,21 @@ def upload():
             "answer": student_text
         }
 
-        print("📊 Submissions:", submissions)
-
         return jsonify({
             "score": score,
-            "feedback": feedback
+            "feedback": feedback,
+            "text": student_text
         })
 
     finally:
         if os.path.exists(filepath):
             os.remove(filepath)
 
+
+# ---------- UPLOAD KEY ----------
 @app.route("/upload-key", methods=["POST"])
 def upload_key():
+
     data = request.get_json()
 
     exam_id = data.get("exam_id")
@@ -224,20 +245,28 @@ def upload_key():
     if not exam_id or not question_id or not question or not key:
         return jsonify({"error": "Missing fields"}), 400
 
+    # CLEAN KEY
+    cleaned_key = clean_text(key)
+
+    # EXTRACT KEYWORDS (IMPORTANT FOR ML)
+    keywords = extract_keywords(cleaned_key)
+
     if exam_id not in exams:
         exams[exam_id] = {}
 
     exams[exam_id][question_id] = {
         "question": question,
-        "key": clean_text(key)
+        "key": cleaned_key,
+        "keywords": keywords   # 🔥 ADD THIS
     }
 
-    print("✅ Stored:", exams)
+    return jsonify({"message": "Stored successfully"})
 
-    return jsonify({"message": "Question + Key stored"})
 
+# ---------- GET QUESTIONS ----------
 @app.route("/get-questions/<exam_id>", methods=["GET"])
 def get_questions(exam_id):
+
     if exam_id not in exams:
         return jsonify({})
 
@@ -245,6 +274,7 @@ def get_questions(exam_id):
         qid: data["question"]
         for qid, data in exams[exam_id].items()
     })
+
 
 # ---------- MAIN ----------
 if __name__ == "__main__":
