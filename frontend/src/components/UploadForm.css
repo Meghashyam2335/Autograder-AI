@@ -1,84 +1,171 @@
-.upload-bg {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 
-  background: linear-gradient(135deg, #667eea, #764ba2);
+/* =========================
+   PAGE BASE
+========================= */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #f5f7fb;
+  overflow: hidden;
 }
 
-/* Card */
+/* =========================
+   BACKGROUND LAYER
+========================= */
+.math-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* floating symbols */
+.symbol {
+  position: absolute;
+  font-size: 34px;
+  color: rgba(37, 99, 235, 0.75); /* MUCH brighter */
+  filter: blur(0.3px);            /* reduce blur */
+  opacity: 0.9;                     /* fully visible */
+  text-shadow: 0 0 10px rgba(37, 99, 235, 0.35); /* glow effect */
+  animation: floatUp linear infinite;
+}
+
+/* animation */
+@keyframes floatUp {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-120vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* =========================
+   LAYOUT CONTAINER
+========================= */
+.upload-container {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* =========================
+   CARD
+========================= */
 .upload-card {
-  width: 400px;
-  padding: 30px;
-  border-radius: 20px;
-
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(15px);
-
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-  color: white;
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   text-align: center;
 }
 
-.subtitle {
-  font-size: 14px;
-  margin-bottom: 20px;
-  opacity: 0.8;
+/* TITLE */
+.upload-card h2 {
+  margin-bottom: 22px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
 }
 
-/* Upload box */
-.upload-box {
-  display: block;
-  border: 2px dashed #fff;
-  padding: 20px;
-  border-radius: 10px;
-  cursor: pointer;
-  margin-bottom: 20px;
-  transition: 0.3s;
+/* =========================
+   INPUTS
+========================= */
+.input-group {
+  margin-bottom: 14px;
+  text-align: left;
 }
 
-.upload-box:hover {
-  background: rgba(255,255,255,0.2);
-}
-
-/* Button */
-button {
+.upload-card select,
+.upload-card input[type="file"] {
   width: 100%;
-  padding: 12px;
+  padding: 11px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  transition: 0.2s ease;
+  background: #fff;
+}
 
+.upload-card select:hover,
+.upload-card input[type="file"]:hover {
+  border-color: #cbd5e1;
+}
+
+.upload-card select:focus,
+.upload-card input[type="file"]:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* =========================
+   BUTTON
+========================= */
+.button-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.upload-btn {
+  width: 160px;
+  padding: 12px;
   border: none;
   border-radius: 10px;
-
-  background: white;
-  color: #333;
-  font-weight: bold;
-
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
   cursor: pointer;
-  transition: 0.3s;
+  transition: 0.2s ease;
 }
 
-button:hover {
-  transform: scale(1.05);
+.upload-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
 }
 
-/* Loading */
-.loading {
-  margin-top: 10px;
+.upload-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
 }
 
-/* Result */
+/* =========================
+   ERROR
+========================= */
+.error {
+  margin-top: 12px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+/* =========================
+   RESULT
+========================= */
 .result-box {
-  margin-top: 20px;
-  text-align: left;
-
-  background: rgba(255,255,255,0.2);
-  padding: 10px;
+  margin-top: 18px;
+  padding: 14px;
   border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
 }
 
-.text {
-  max-height: 120px;
-  overflow-y: auto;
-  font-size: 14px;
+.result-box h3 {
+  margin: 0;
+  color: #16a34a;
 }

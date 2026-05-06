@@ -1,0 +1,11 @@
+flask
+flask-cors
+torch
+transformers
+sentencepiece
+opencv-python
+pillow
+easyocr
+pdf2image
+sentence-transformers
+numpy
